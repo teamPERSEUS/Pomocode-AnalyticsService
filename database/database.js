@@ -15,7 +15,7 @@ db.authenticate()
 
 /* DB --SCHEMA-- */
 // vsdata table
-const CodeAnalysis = db.define('vsdata', {
+const CodeAnalysis = db.define('vscode', {
   git_id: {
     type: Sequelize.INTEGER,
     foreignKey: true
