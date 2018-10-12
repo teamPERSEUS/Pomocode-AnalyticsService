@@ -71,5 +71,6 @@ const Plan = db.define('plandata', {
 // create/connect to tables in the db
 db.sync();
 
+module.exports.db = db;
 module.exports.CodeAnalysis = CodeAnalysis;
 module.exports.Plan = Plan;
