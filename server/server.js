@@ -12,7 +12,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 //retreive data from GitHub microserver
 app.post('/api/plannerMicro', (req, res) => {
   console.log(req.body)
-  Plan.create(req.body.issues)
+  Plan.create(req.body)
   .catch((err) => {
     console.log("Error with Planner Micro table:", err);
     res.status(500).send("Error in obtaining Plan Data");

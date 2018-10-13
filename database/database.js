@@ -47,6 +47,8 @@ const Plan = db.define('plandata', {
     type: Sequelize.STRING,
     unique: true,
   },
+  repo_url: Sequelize.STRING,
+  organization: Sequelize.STRING,
   username: Sequelize.STRING,
   reponame: Sequelize.STRING,
   number: Sequelize.INTEGER,
