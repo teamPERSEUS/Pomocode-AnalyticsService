@@ -1,5 +1,5 @@
 const Sequelize = require('sequelize');
-var db = new Sequelize('pomo_analysis', 'root', '', {
+var db = new Sequelize('analysis', 'root', '', {
 	host: 'localhost',
 	dialect: 'mysql'
 });
@@ -70,7 +70,7 @@ const Plan = db.define('plandata', {
 	enddate: Sequelize.DATEONLY
 });
 
-// create/connect to tables in the db
+Plan.hasMany(Intervals);
 db.sync();
 
 module.exports.db = db;
