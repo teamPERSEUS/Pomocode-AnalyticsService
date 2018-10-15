@@ -2,17 +2,29 @@ require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 
-const { Plan, Intervals } = require('../database/database');
+const { Plans, Intervals } = require('../database/database');
 
 const app = express();
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
+//CORS headers
+app.use((req, res, next) => {
+	res.header('Access-Control-Allow-Origin', '*');
+	res.header(
+		'Access-Control-Allow-Headers',
+		'Origin, X-Requested-With, Content-Type, Accept'
+	);
+	res.header('Access-Control-Allow-Credentials', 'true');
+	res.header('Access-Control-Allow-Methods', '*');
+	next();
+});
+
 //retreive data from GitHub microserver
 app.post('/api/plannerMicro', (req, res) => {
 	console.log(req.body.data);
-	Plan.create(req.body).catch(err => {
+	Plans.create(req.body).catch(err => {
 		console.log('Error with Planner Micro table:', err);
 		res.status(500).send('Error in obtaining Plan Data');
 		throw err;
@@ -20,22 +32,52 @@ app.post('/api/plannerMicro', (req, res) => {
 });
 //retrieve data from VS Code microserver
 app.post('/api/vsCodeMicro', (req, res) => {
-	console.log(req.body);
-	Intervals.bulkCreate(req.body.data).catch(err => {
+	console.log(req.body.data);
+	Intervals.bulkCreate(req.body.data, { individualHooks: true }).catch(err => {
 		console.log('Error with VSCode Micro table:', err);
 		res.status(500).send('Error in obtaining VSCode Data');
 		throw err;
 	});
 });
 
+app.post('/test', (req, res) => {
+	let obj = {
+		intervalNum: 1,
+		user: 'https://github.com/teamPERSEUS/Pomocode',
+		repoUrl: 4,
+		idleTime: 0,
+		issue: 'TBD',
+		fileName:
+			'/Users/fredricklou/HackReactor/HR33/Thesis/Pomocode/src/presentational/IntervalUpdates/IntervalList/Interval/IntervalView.jsx',
+		state: 'Break',
+		time: 3,
+		wordCount: 3
+	};
+
+	Plans.findOrCreate({ where: { git_id: 'MDU6SXNzdWUzNTc0MjMwMTc=' } }).spread(
+		(plan, created) => {
+			obj['PlanId'] = plan.get('id');
+			Intervals.create(obj).then(res.send('INTERVALS'));
+		}
+	);
+});
+
+app.get('/api/intervalUpdates', (req, res) => {
+	Intervals.findAll({
+		include: [{ model: Plans }]
+	}).then(data => {
+		res.send(data);
+	});
+});
+
 //Interval Updates Detail Component
 app.get('/api/intervalDetails', (req, res) => {
-	let { repoUrl, intervalNum, user } = req.query;
+	let { intervalNum, repoUrl, user } = req.query;
 	Intervals.findAll({
 		where: {
-			intervalNum: 1,
-			repoUrl: 'https://github.com/teamPERSEUS/Pomocode',
-			user: 'fredricklou523'
+			intervalNum: intervalNum,
+			repoUrl: repoUrl,
+			user: user
 		}
 	}).then(data => {
 		var mostActive = {
@@ -142,6 +184,7 @@ app.get('/api/intervalDetails', (req, res) => {
 			mostActive: mostActive.name,
 			feedback: feedback()
 		};
+		console.log(interval);
 		res.send(interval);
 	});
 });

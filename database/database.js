@@ -15,15 +15,7 @@ db.authenticate()
 
 /* DB --SCHEMA-- */
 // vsdata table
-const Intervals = db.define('vsCodeIntervals', {
-	git_id: {
-		type: Sequelize.STRING
-	},
-	id: {
-		type: Sequelize.INTEGER,
-		primaryKey: true,
-		autoIncrement: true
-	},
+const Intervals = db.define('Intervals', {
 	date: { type: Sequelize.DATE, defaultValue: Sequelize.NOW },
 	user: Sequelize.STRING,
 	repoUrl: Sequelize.STRING,
@@ -37,15 +29,9 @@ const Intervals = db.define('vsCodeIntervals', {
 });
 
 // plandata table
-const Plan = db.define('plandata', {
-	id: {
-		type: Sequelize.INTEGER,
-		primaryKey: true,
-		autoIncrement: true
-	},
+const Plans = db.define('Plans', {
 	git_id: {
-		type: Sequelize.STRING,
-		unique: true
+		type: Sequelize.STRING
 	},
 	repo_url: Sequelize.STRING,
 	organization: Sequelize.STRING,
@@ -70,9 +56,12 @@ const Plan = db.define('plandata', {
 	enddate: Sequelize.DATEONLY
 });
 
-Plan.hasMany(Intervals);
-db.sync();
+Plans.hasMany(Intervals);
+Intervals.belongsTo(Plans);
+
+Plans.sync();
+Intervals.sync();
 
 module.exports.db = db;
 module.exports.Intervals = Intervals;
-module.exports.Plan = Plan;
+module.exports.Plans = Plans;
