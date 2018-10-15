@@ -31,49 +31,24 @@ app.post('/api/plannerMicro', (req, res) => {
 	});
 });
 //retrieve data from VS Code microserver
+// app.post('/api/vsCodeMicro', (req, res) => {
+// 	console.log(req.body.data);
+// 	Intervals.bulkCreate(req.body.data, { individualHooks: true }).catch(err => {
+// 		console.log('Error with VSCode Micro table:', err);
+// 		res.status(500).send('Error in obtaining VSCode Data');
+// 		throw err;
+// 	});
+// });
+
 app.post('/api/vsCodeMicro', (req, res) => {
-	console.log(req.body.data);
-	Intervals.bulkCreate(req.body.data, { individualHooks: true }).catch(err => {
-		console.log('Error with VSCode Micro table:', err);
-		res.status(500).send('Error in obtaining VSCode Data');
-		throw err;
-	});
-});
-
-app.post('/test', (req, res) => {
-	let IntervalActivity = [{
-		intervalNum: 1,
-		user: 'https://github.com/teamPERSEUS/Pomocode',
-		repoUrl: 4,
-		idleTime: 0,
-		issue: 'TBD',
-		fileName:
-			'/Users/fredricklou/HackReactor/HR33/Thesis/Pomocode/src/presentational/IntervalUpdates/IntervalList/Interval/IntervalView.jsx',
-		state: 'Break',
-		time: 3,
-		wordCount: 3,
-		git_id: 'MDU6SXNzdWUzNjkzMjIwMDc=',
-	},
-	{
-		intervalNum: 1,
-		user: 'https://github.com/teamPERSEUS/Pomocode',
-		repoUrl: 4,
-		idleTime: 0,
-		issue: 'TBD',
-		fileName:
-			'/Users/fredricklou/HackReactor/HR33/Thesis/Pomocode/src/presentational/IntervalUpdates/IntervalList/Interval/IntervalView.jsx',
-		state: 'Running',
-		time: 7,
-		wordCount: 13,
-		git_id: 'MDU6SXNzdWUzNjkzMjIwMDc=',
-	}];
-
-	IntervalActivity.forEach((activity) => {
-		Plans.findOrCreate({ where: { git_id: activity.git_id } })
-			.spread((plan, created) => {
+	let IntervalActivity = req.body.data;
+	IntervalActivity.forEach(activity => {
+		Plans.findOrCreate({ where: { git_id: activity.git_id } }).spread(
+			(plan, created) => {
 				activity['PlanId'] = plan.get('id');
 				Intervals.create(activity);
-			});
+			}
+		);
 	});
 
 	res.send('INTERVALS');
@@ -104,9 +79,9 @@ app.get('/api/intervalDetails', (req, res) => {
 		}
 	}).then(data => {
 		var mostActive = {
-			name: null,
-			time: 0
-		},
+				name: null,
+				time: 0
+			},
 			mostIssue,
 			idleCount = 0,
 			idleBreak = 0,
