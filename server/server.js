@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-
+const Sequelize = require('sequelize');
 const { Plans, Intervals } = require('../database/database');
 
 const app = express();
@@ -52,23 +52,15 @@ app.post('/api/vsCodeMicro', (req, res) => {
 			Intervals.create(activity);
 		});
 	});
-
-	res.send('INTERVALS');
-	// Plans.findOrCreate({ where: { git_id: obj.git_id } }).spread(
-	// 	(plan, created) => {
-	// 		obj['PlanId'] = plan.get('id');
-	// 		Intervals.create(obj).then(res.send('INTERVALS'));
-	// 	}
-	// );
 });
 
 app.get('/api/intervalUpdates', (req, res) => {
-	Intervals.findAll({
-		where: {},
-		include: [{ model: Plans }]
-	}).then(data => {
-		res.send(data);
-	});
+	Intervals.max('intervalNum', { where: { user: 'fredricklou523' } }).then(
+		max =>
+			Intervals.findAll({
+				where: { intervalNum: [max - 2, max - 1, max] }
+			}).then(data => res.send(data))
+	);
 });
 
 //Interval Updates Detail Component
