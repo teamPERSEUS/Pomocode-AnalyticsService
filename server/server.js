@@ -41,7 +41,7 @@ app.post('/api/vsCodeMicro', (req, res) => {
 });
 
 app.post('/test', (req, res) => {
-	let obj = {
+	let IntervalActivity = [{
 		intervalNum: 1,
 		user: 'https://github.com/teamPERSEUS/Pomocode',
 		repoUrl: 4,
@@ -51,15 +51,38 @@ app.post('/test', (req, res) => {
 			'/Users/fredricklou/HackReactor/HR33/Thesis/Pomocode/src/presentational/IntervalUpdates/IntervalList/Interval/IntervalView.jsx',
 		state: 'Break',
 		time: 3,
-		wordCount: 3
-	};
+		wordCount: 3,
+		git_id: 'MDU6SXNzdWUzNjkzMjIwMDc=',
+	},
+	{
+		intervalNum: 1,
+		user: 'https://github.com/teamPERSEUS/Pomocode',
+		repoUrl: 4,
+		idleTime: 0,
+		issue: 'TBD',
+		fileName:
+			'/Users/fredricklou/HackReactor/HR33/Thesis/Pomocode/src/presentational/IntervalUpdates/IntervalList/Interval/IntervalView.jsx',
+		state: 'Running',
+		time: 7,
+		wordCount: 13,
+		git_id: 'MDU6SXNzdWUzNjkzMjIwMDc=',
+	}];
 
-	Plans.findOrCreate({ where: { git_id: 'MDU6SXNzdWUzNTc0MjMwMTc=' } }).spread(
-		(plan, created) => {
-			obj['PlanId'] = plan.get('id');
-			Intervals.create(obj).then(res.send('INTERVALS'));
-		}
-	);
+	IntervalActivity.forEach((activity) => {
+		Plans.findOrCreate({ where: { git_id: activity.git_id } })
+			.spread((plan, created) => {
+				activity['PlanId'] = plan.get('id');
+				Intervals.create(activity);
+			});
+	});
+
+	res.send('INTERVALS');
+	// Plans.findOrCreate({ where: { git_id: obj.git_id } }).spread(
+	// 	(plan, created) => {
+	// 		obj['PlanId'] = plan.get('id');
+	// 		Intervals.create(obj).then(res.send('INTERVALS'));
+	// 	}
+	// );
 });
 
 app.get('/api/intervalUpdates', (req, res) => {
@@ -81,9 +104,9 @@ app.get('/api/intervalDetails', (req, res) => {
 		}
 	}).then(data => {
 		var mostActive = {
-				name: null,
-				time: 0
-			},
+			name: null,
+			time: 0
+		},
 			mostIssue,
 			idleCount = 0,
 			idleBreak = 0,
