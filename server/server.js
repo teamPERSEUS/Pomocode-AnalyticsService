@@ -43,12 +43,14 @@ app.post('/api/plannerMicro', (req, res) => {
 app.post('/api/vsCodeMicro', (req, res) => {
 	let IntervalActivity = req.body.data;
 	IntervalActivity.forEach(activity => {
-		Plans.findOrCreate({ where: { git_id: activity.git_id } }).spread(
-			(plan, created) => {
-				activity['PlanId'] = plan.get('id');
-				Intervals.create(activity);
+		Plans.findOne({ where: { git_id: activity.git_id } }).then(data => {
+			if (data) {
+				activity['PlanId'] = data.get('id');
+			} else {
+				activity['PlanId'] = null;
 			}
-		);
+			Intervals.create(activity);
+		});
 	});
 
 	res.send('INTERVALS');
@@ -62,6 +64,7 @@ app.post('/api/vsCodeMicro', (req, res) => {
 
 app.get('/api/intervalUpdates', (req, res) => {
 	Intervals.findAll({
+		where: {},
 		include: [{ model: Plans }]
 	}).then(data => {
 		res.send(data);
