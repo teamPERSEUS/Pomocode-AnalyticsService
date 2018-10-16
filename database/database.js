@@ -28,6 +28,21 @@ const Intervals = db.define('Intervals', {
 	idleTime: Sequelize.INTEGER
 });
 
+const UserIntervals = db.define('UserIntervals', {
+	user: Sequelize.STRING,
+	totalRunning: Sequelize.INTEGER,
+	totalRunningIdle: Sequelize.INTEGER,
+	totalBreak: Sequelize.INTEGER,
+	totalBreakIdle: Sequelize.INTEGER,
+	totalWordCount: Sequelize.INTEGER
+});
+
+const IntervalIssues = db.define('IntervalIssues', {
+	totalActive: Sequelize.INTEGER,
+	totalIdle: Sequelize.INTEGER,
+	totalWordCount: Sequelize.INTEGER
+});
+
 // plandata table
 const Plans = db.define('Plans', {
 	git_id: {
@@ -59,9 +74,25 @@ const Plans = db.define('Plans', {
 Plans.hasMany(Intervals);
 Intervals.belongsTo(Plans);
 
+UserIntervals.hasMany(Intervals);
+Intervals.belongsTo(UserIntervals);
+
+IntervalIssues.hasMany(Intervals);
+Intervals.belongsTo(IntervalIssues);
+
+UserIntervals.hasMany(IntervalIssues);
+IntervalIssues.belongsTo(UserIntervals);
+
+Plans.hasMany(IntervalIssues);
+IntervalIssues.belongsTo(Plans);
+
+UserIntervals.sync();
 Plans.sync();
+IntervalIssues.sync();
 Intervals.sync();
 
 module.exports.db = db;
-module.exports.Intervals = Intervals;
 module.exports.Plans = Plans;
+module.exports.Intervals = Intervals;
+module.exports.UserIntervals = UserIntervals;
+module.exports.IntervalIssues = IntervalIssues;
