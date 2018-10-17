@@ -36,6 +36,7 @@ app.post('/api/plannerMicro', (req, res) => {
     throw err;
   });
 });
+
 //retrieve data from VS Code microserver
 // app.post('/api/vsCodeMicro', (req, res) => {
 // 	console.log(req.body.data);
@@ -47,70 +48,78 @@ app.post('/api/plannerMicro', (req, res) => {
 // });
 
 app.get('/api/intervalUpdates', (req, res) => {
-  // Intervals.max('UserIntervalId', { where: { user: 'fredricklou523' } }).then(
-  // 	max =>
-  // 		Intervals.findAll({
-  // 			where: { UserIntervalId: [max - 2, max - 1, max] },
-  // 		}).then(data => res.send(data))
-  // );
+  // Last 3 Intervals
+  // 	- all issues associated with each interval;
+
+  UserIntervals.max('id', { where: { user: 'fredricklou523' } }).then(maxId => {
+    let intervals = [maxId, maxId - 1, maxId - 2];
+    async function parse() {
+      let dataArray = [];
+      for (const interval of intervals) {
+        await intervalIssues(interval);
+      }
+
+      async function intervalIssues(interval) {
+        IntervalIssues.findAll({
+          where: { UserIntervalId: interval },
+          distinct: 'PlanId',
+          attributes: [
+            'totalActive',
+            'totalIdle',
+            'previousTotalActive',
+            'previousTotalIdle'
+          ],
+          include: [
+            {
+              model: Plans,
+              attributes: [
+                'estimate_time',
+                'title',
+                'git_id',
+                'repo_url',
+                'reponame',
+                'number'
+              ]
+            },
+            { model: Intervals, attributes: ['intervalNum'] }
+          ]
+        }).then(data => {
+          var intervalObj = {};
+          data.forEach(async issue => {
+            async function objectBuilder() {
+              if (!intervalObj.Plan) {
+                intervalObj[issue.Plan.title] = {
+                  columns: [
+                    ['Plan', issue.Plan.estimate_time],
+                    ['Time', issue.previousTotalActive],
+                    [
+                      'IntervalTime',
+                      issue.totalActive - issue.previousTotalActive
+                    ]
+                  ],
+                  groups: [['Time', 'IntervalTime']],
+                  intervalNum: issue.Intervals.intervalNum,
+                  issueName: issue.Plan.title,
+                  git_id: issue.Plan.git_id,
+                  repo_url: issue.Plan.repo_url,
+                  number: issue.Plan.number
+                };
+              }
+            }
+            await objectBuilder();
+          });
+          dataArray.push(intervalObj);
+          if (dataArray.length === 3) res.send(dataArray);
+        });
+      }
+    }
+    parse();
+  });
 });
 
 app.post('/api/vsCodeMicro', (req, res) => {
   let data = req.body.data;
-  // console.log(data);
-  //  [
-  // 	{
-  // 		git_id: 'MDU6SXNzdWUzNjkzMjE1MDY=',
-  // 		id: 6,
-  // 		date: '2018-10-14T05:55:52.000Z',
-  // 		user: 'fredricklou523',
-  // 		repoUrl: 'https://github.com/teamPERSEUS/Pomocode',
-  // 		issue: 'No Issue Selected',
-  // 		fileName: 'Untitled-1',
-  // 		intervalNum: 3,
-  // 		state: 'Running',
-  // 		time: 12,
-  // 		wordCount: 10,
-  // 		idleTime: 4,
-  // 		repoName: 'FRED REPO',
-  // 		createdAt: '2018-10-14T05:55:52.000Z',
-  // 		updatedAt: '2018-10-14T05:55:52.000Z'
-  // 	},
-  // 	{
-  // 		git_id: 'MDU6SXNzdWUzNjkzMjE1MXNzdWUzNjkzMjE1MDY=',
-  // 		id: 7,
-  // 		date: '2018-10-14T05:55:52.000Z',
-  // 		user: 'fredricklou523',
-  // 		repoUrl: 'https://github.com/teamPERSEUS/Pomocode',
-  // 		issue: 'TBD',
-  // 		fileName: 'Untitled-1',
-  // 		intervalNum: 3,
-  // 		state: 'Break',
-  // 		time: 3,
-  // 		wordCount: 0,
-  // 		idleTime: 4,
-  // 		repoName: 'FRED REPO',
-  // 		createdAt: '2018-10-14T05:55:52.000Z',
-  // 		updatedAt: '2018-10-14T05:55:52.000Z'
-  // 	},
-  // 	{
-  // 		git_id: 'MDU6SXNzdWUzNjkzMjE1MXNzdWUzNjkzMjE1MDY=',
-  // 		id: 7,
-  // 		date: '2018-10-14T05:55:52.000Z',
-  // 		user: 'fredricklou523',
-  // 		repoUrl: 'https://github.com/teamPERSEUS/Pomocode',
-  // 		issue: 'No Issue Selected',
-  // 		fileName: 'LEASETAFILE',
-  // 		intervalNum: 3,
-  // 		state: 'Running',
-  // 		time: 50,
-  // 		wordCount: 0,
-  // 		idleTime: 4,
-  // 		repoName: 'FRED REPO',
-  // 		createdAt: '2018-10-14T05:55:52.000Z',
-  // 		updatedAt: '2018-10-14T05:55:52.000Z'
-  // 	}
-  // ];
+
   var UserIntervalObj = {
     user: data[0].user,
     totalRunning: 0,
@@ -139,7 +148,8 @@ app.post('/api/vsCodeMicro', (req, res) => {
         totalActive: 0,
         totalIdle: 0,
         totalWordCount: 0,
-        git_id: intervalItem.git_id
+        git_id: intervalItem.git_id,
+        user: data[0].user
       };
     }
 
@@ -162,54 +172,78 @@ app.post('/api/vsCodeMicro', (req, res) => {
 
   //First save UserIntervals
   UserIntervals.create(UserIntervalObj)
-    .then(UserIntervalData => {
+    .then(async UserIntervalData => {
       UserIntervalId = UserIntervalData.dataValues.id;
-
       for (var intIssue in IntervalIssuesObj) {
-        Plans.findOne({
+        console.log(intIssue);
+        console.log('INTISSUE');
+        await Plans.findOne({
           where: { git_id: IntervalIssuesObj[intIssue].git_id }
-        }).then(plansData => {
-          PlansIds[IntervalIssuesObj[intIssue].git_id] = plansData.get('id');
+        }).then(async plansData => {
+          console.log(plansData);
+          console.log('PLANS DATA');
+          if (plansData != null) {
+            PlansIds[IntervalIssuesObj[intIssue].git_id] = plansData.get('id');
+            IntervalIssuesObj[intIssue].PlanId = plansData.get('id');
+          } else {
+            PlansIds[IntervalIssuesObj[intIssue].git_id] = null;
+            IntervalIssuesObj[intIssue].PlanId = null;
+          }
 
-          IntervalIssuesObj[intIssue].PlanId = plansData.get('id');
           // console.log(
           // 	util.inspect(IntervalIssuesObj[intIssue], false, null, true)
           // );
-          IntervalIssues.findOne({
+          await IntervalIssues.findOne({
             where: { PlanId: IntervalIssuesObj[intIssue].PlanId },
             order: [['createdAt', 'DESC']],
             limit: 1
-          }).then(data => {
-            if (data !== undefined) {
+          }).then(async data => {
+            if (data !== null) {
+              IntervalIssuesObj[intIssue].previousTotalActive = data.get(
+                'totalActive'
+              );
+
               IntervalIssuesObj[intIssue].totalActive += data.get(
                 'totalActive'
               );
+
+              IntervalIssuesObj[intIssue].previousTotalIdle = data.get(
+                'totalIdle'
+              );
               IntervalIssuesObj[intIssue].totalIdle += data.get('totalIdle');
+              IntervalIssuesObj[intIssue].previousTotalWordCount = data.get(
+                'totalWordCount'
+              );
               IntervalIssuesObj[intIssue].totalWordCount += data.get(
                 'totalWordCount'
               );
-              // IntervalIssuesObj[intIssue].totalIntervals += 1;
+              IntervalIssuesObj[intIssue].totalIntervals =
+                data.get('totalIntervals') + 1;
             }
-            IntervalIssues.create(IntervalIssuesObj[intIssue]).then(issue => {
-              PlanIssueKeys[IntervalIssuesObj[intIssue].git_id] = issue.get(
-                'id'
-              );
-            });
+            IntervalIssuesObj[intIssue].UserIntervalId = UserIntervalId;
+            console.log(util.inspect(IntervalIssuesObj, false, null, true));
+            await IntervalIssues.create(IntervalIssuesObj[intIssue]).then(
+              issue => {
+                PlanIssueKeys[IntervalIssuesObj[intIssue].git_id] = issue.get(
+                  'id'
+                );
+              }
+            );
           });
         });
       }
     })
     .then(() => {
-      var commitIntervalData = function() {
-        data.forEach(activity => {
-          activity.UserIntervalId = UserIntervalId;
-          activity.PlanId = PlansIds[activity.git_id];
-          // console.log(activity.PlanId + 'Activtity plan  ID');
+      data.forEach(activity => {
+        activity.UserIntervalId = UserIntervalId;
+        activity.PlanId = PlansIds[activity.git_id];
+        // console.log(activity.PlanId + 'Activtity plan  ID');
+        async function postIntervals() {
           activity.IntervalIssueId = PlanIssueKeys[activity.git_id];
-          Intervals.create(activity);
-        });
-      };
-      setTimeout(commitIntervalData, 1000);
+          await Intervals.create(activity);
+        }
+        postIntervals();
+      });
     })
     .then(res.send(PlansIds));
 
