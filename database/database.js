@@ -1,10 +1,15 @@
 if (process.env.NODE_ENV !== 'production') require('dotenv').config();
 const Sequelize = require('sequelize');
-// var db = new Sequelize('analysis', 'root', '', {
-//   host: 'localhost',
-//   dialect: 'mysql'
-// });
-var db = new Sequelize(process.env.DATABASE_URL);
+
+var db;
+if (process.env.NODE_ENV !== 'production') {
+  db = new Sequelize('analysis', 'root', '', {
+    host: 'localhost',
+    dialect: 'mysql'
+  });
+} else {
+  db = new Sequelize(process.env.DATABASE_URL);
+}
 
 // NOTE: Create DB 'pomo_analysis' in mysql before running
 db.authenticate()
