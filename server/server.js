@@ -3,6 +3,7 @@ const util = require('util');
 const express = require('express');
 const bodyParser = require('body-parser');
 const Sequelize = require('sequelize');
+const moment = require('moment');
 const {
   Plans,
   Intervals,
@@ -234,7 +235,7 @@ app.post('/api/vsCodeMicro', (req, res) => {
                 data.get('totalIntervals') + 1;
             }
             IntervalIssuesObj[intIssue].UserIntervalId = UserIntervalId;
-            console.log(util.inspect(IntervalIssuesObj, false, null, true));
+            // console.log(util.inspect(IntervalIssuesObj, false, null, true));
             await IntervalIssues.create(IntervalIssuesObj[intIssue]).then(
               issue => {
                 PlanIssueKeys[IntervalIssuesObj[intIssue].git_id] = issue.get(
@@ -274,15 +275,99 @@ app.post('/api/vsCodeMicro', (req, res) => {
   // });
 });
 
+app.get('/api/issueAnalysis', (req, res) => {
+  console.log(req.query);
+  // let username, git_id, reponame, number, title, body;
+  Plans.findOne({
+    where: { git_id: 'MDU6SXNzdWUzNjkzMjE1MDY=' },
+    attributes: [
+      'id',
+      'username',
+      'git_id',
+      'reponame',
+      'number',
+      'title',
+      'body',
+      'estimate_time',
+      'estimate_start_date',
+      'estimate_end_date'
+    ]
+  }).then(issueid => {
+    const {
+      username,
+      git_id,
+      reponame,
+      number,
+      title,
+      body,
+      estimate_time,
+      estimate_start_date,
+      estimate_end_date
+    } = issueid.dataValues;
+    IntervalIssues.findAll({
+      where: { PlanId: issueid.get('id') },
+      attributes: ['UserIntervalId']
+    }).then(data => {
+      let intervalsArray = data.map(interval => {
+        return interval.dataValues.UserIntervalId;
+      });
+      UserIntervals.findAll({
+        where: { id: intervalsArray }
+      }).then(data => {
+        // console.log(data[0].dataValues);
+        // console.log(moment(data[0].dataValues.createdAt).format('dddd MMM Do'));
+
+        let intervalsObject = {
+          columns: [
+            ['Date Interval'],
+            ['Active'],
+            ['Idle'],
+            ['WordCount'],
+            ['Plan']
+          ],
+          intervalCounter: 0,
+          git_id: git_id,
+          username: username,
+          reponame: reponame,
+          number: number,
+          title: title,
+          body: body,
+          startDate: moment(estimate_start_date).format('dddd MMM Do'),
+          endDate: moment(estimate_end_date).format('dddd MMM Do')
+        };
+
+        data.forEach(interval => {
+          intervalsObject.intervalCounter++;
+          intervalsObject.columns[0].push(
+            moment(interval.dataValues.createdAt).format('dddd MMM Do') +
+              ' Interval ' +
+              intervalsObject.intervalCounter
+          );
+          intervalsObject.columns[1].push(interval.dataValues.totalRunning);
+          intervalsObject.columns[2].push(interval.dataValues.totalRunningIdle);
+          intervalsObject.columns[3].push(interval.dataValues.totalWordCount);
+          intervalsObject.columns[4].push(estimate_time);
+        });
+        res.send(intervalsObject);
+      });
+    });
+  });
+});
+
 //Interval Updates Detail Component
 app.get('/api/intervalDetails', (req, res) => {
   let { intervalNum, repoUrl, user } = req.query;
+  console.log(intervalNum);
+  console.log(repoUrl);
+  console.log(user);
+  console.log('HEEEEEREEEE');
   Intervals.findAll({
     where: {
       intervalNum: intervalNum,
       repoUrl: repoUrl,
       user: user
-    }
+    },
+    include: [{ model: Plans, attributes: ['reponame'] }]
   }).then(data => {
     var mostActive = {
         name: null,
@@ -300,8 +385,8 @@ app.get('/api/intervalDetails', (req, res) => {
       };
 
     data.forEach(item => {
-      if (!columns[item.fileName]) {
-        columns[item.fileName] = {
+      if (!columns[getFileName(item.fileName)]) {
+        columns[getFileName(item.fileName)] = {
           'Running(Active)': 0,
           'Running(Idle)': 0,
           'Break(Active)': 0,
@@ -309,18 +394,19 @@ app.get('/api/intervalDetails', (req, res) => {
         };
       }
       if (item.state === 'Running') {
-        columns[item.fileName]['Running(Active)'] += item.time;
-        columns[item.fileName]['Running(Idle)'] += item.idleTime;
+        columns[getFileName(item.fileName)]['Running(Active)'] += item.time;
+        columns[getFileName(item.fileName)]['Running(Idle)'] += item.idleTime;
         idleRunning += item.idleTime;
         runningTotal += item.time + item.idleTime;
       }
       if (item.state === 'Break') {
-        columns[item.fileName]['Break(Active)'] += item.time;
-        columns[item.fileName]['Break(Idle)'] += item.idleTime;
+        columns[getFileName(item.fileName)]['Break(Active)'] += item.time;
+        columns[getFileName(item.fileName)]['Break(Idle)'] += item.idleTime;
         idleBreak += item.idleTime;
         breakTotal += item.time + item.idleTime;
       }
       wordCount += item.wordCount;
+      // console.log(item);
     });
 
     var columnData = [
@@ -366,7 +452,8 @@ app.get('/api/intervalDetails', (req, res) => {
         );
       }
       let breakIdlePercent = (idleBreak / breakTotal) * 100;
-      if (breakIdlePercent < 90) {
+      // console.log(breakIdlePercent);
+      if (breakIdlePercent > 30) {
         return (
           "Take a break! You've spent " +
           breakIdlePercent.toFixed() +
@@ -382,16 +469,32 @@ app.get('/api/intervalDetails', (req, res) => {
         ['Running(Active)', 'Running(Idle)'],
         ['Break(Active)', 'Break(Idle)']
       ],
-      reponame: data[0].repoName,
+      reponame: data[0].Plan.reponame,
       wordCount: wordCount,
       idleTime: idleRunning + idleBreak,
       mostActive: mostActive.name,
-      feedback: feedback()
+      feedback: feedback(),
+      intervalNum: intervalNum
     };
-    console.log(interval);
+    // console.log(interval);
     res.send(interval);
   });
 });
+
+function getFileName(string) {
+  var file = '';
+
+  for (var i = string.length; i > 0; i--) {
+    if (string.charAt(i) === '/') {
+      return file
+        .split('')
+        .reverse()
+        .join('');
+    }
+
+    file += string.charAt(i);
+  }
+}
 
 app.listen(process.env.PORT, () => {
   console.log(`App listening on port: ${process.env.PORT}`);
