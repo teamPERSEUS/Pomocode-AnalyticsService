@@ -60,15 +60,15 @@ app.post('/api/plannerMicro', (req, res) => {
 app.get('/api/intervalUpdates', (req, res) => {
   // Last 3 Intervals
   // 	- all issues associated with each interval;
+  const { userName } = req.query;
 
-  UserIntervals.max('id', { where: { user: 'fredricklou523' } }).then(maxId => {
+  UserIntervals.max('id', { where: { user: userName } }).then(maxId => {
     let intervals = [maxId, maxId - 1, maxId - 2];
     async function parse() {
       let dataArray = [];
       for (const interval of intervals) {
         await intervalIssues(interval);
       }
-
       async function intervalIssues(interval) {
         IntervalIssues.findAll({
           where: { UserIntervalId: interval },
@@ -94,9 +94,11 @@ app.get('/api/intervalUpdates', (req, res) => {
             { model: Intervals, attributes: ['intervalNum'] }
           ]
         }).then(data => {
+          // res.send(data);
           var intervalObj = {};
           data.forEach(async issue => {
             async function objectBuilder() {
+              // console.log(util.inspect(issue, false, null, true));
               if (!intervalObj.Plan) {
                 intervalObj[issue.Plan.title] = {
                   columns: [
@@ -108,10 +110,11 @@ app.get('/api/intervalUpdates', (req, res) => {
                     ]
                   ],
                   groups: [['Time', 'IntervalTime']],
-                  intervalNum: issue.Intervals.intervalNum,
                   issueName: issue.Plan.title,
                   git_id: issue.Plan.git_id,
                   repo_url: issue.Plan.repo_url,
+                  repoName: issue.Plan.reponame,
+                  intervalNum: issue.Intervals[0].intervalNum,
                   number: issue.Plan.number
                 };
               }
