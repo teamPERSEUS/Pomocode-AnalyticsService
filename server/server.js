@@ -460,7 +460,7 @@ app.get('/api/intervalDetails', (req, res) => {
           '% of your break working!'
         );
       }
-      return "Looks like you've spent your interval wisely, young padawan *insert yoda*";
+      return "Looks like you've spent your interval wisely, yodaMan!";
     }
 
     var interval = {
