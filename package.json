@@ -25,6 +25,7 @@
     "express-session": "^1.15.6",
     "mysql2": "^1.6.1",
     "nodemon": "^1.18.4",
+    "pg": "^7.5.0",
     "sequelize": "^4.39.0"
   },
   "eslintConfig": {

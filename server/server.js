@@ -1,4 +1,4 @@
-require('dotenv').config();
+if (process.env.NODE_ENV !== 'production') require('dotenv').config();
 const util = require('util');
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -25,6 +25,16 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', '*');
   next();
+});
+
+app.get('/', (req, res) => {
+  Plans.findAll().then(plans => {
+    var planList = plans.map(plan => {
+      return plan.get('git_id');
+    });
+    console.log(planList);
+    res.send(planList);
+  });
 });
 
 //retreive data from GitHub microserver
