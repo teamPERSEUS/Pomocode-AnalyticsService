@@ -1,6 +1,7 @@
 if (process.env.NODE_ENV !== 'production') require('dotenv').config();
 const util = require('util');
 const express = require('express');
+const { seedDB } = require('../database/seed');
 const bodyParser = require('body-parser');
 const Sequelize = require('sequelize');
 const moment = require('moment');
@@ -28,19 +29,23 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get('/api/seed', (req, res) => {
+  seedDB();
+});
+
 app.get('/', (req, res) => {
   Plans.findAll().then(plans => {
     var planList = plans.map(plan => {
       return plan.get('git_id');
     });
-    console.log(planList);
+    // console.log(planList);
     res.send(planList);
   });
 });
 
 //retreive data from GitHub microserver
 app.post('/api/plannerMicro', (req, res) => {
-  console.log(req.body.data);
+  // console.log(req.body.data);
   Plans.create(req.body).catch(err => {
     console.log('Error with Planner Micro table:', err);
     res.status(500).send('Error in obtaining Plan Data');
@@ -65,22 +70,29 @@ app.get('/api/intervalUpdates', (req, res) => {
 
   UserIntervals.max('id', { where: { user: userName } }).then(maxId => {
     let intervals = [maxId, maxId - 1, maxId - 2];
+    // console.log(intervals);
+    // console.log('INTERVALS');
     async function parse() {
       let dataArray = [];
       for (const interval of intervals) {
+        // console.log(interval);
         await intervalIssues(interval);
       }
       async function intervalIssues(interval) {
-        IntervalIssues.findAll({
+        Intervals.findAll({
           where: { UserIntervalId: interval },
           distinct: 'PlanId',
-          attributes: [
-            'totalActive',
-            'totalIdle',
-            'previousTotalActive',
-            'previousTotalIdle'
-          ],
+          attributes: ['intervalNum', 'id'],
           include: [
+            {
+              model: IntervalIssues,
+              attributes: [
+                'totalActive',
+                'totalIdle',
+                'previousTotalActive',
+                'previousTotalIdle'
+              ]
+            },
             {
               model: Plans,
               attributes: [
@@ -91,39 +103,44 @@ app.get('/api/intervalUpdates', (req, res) => {
                 'reponame',
                 'number'
               ]
-            },
-            { model: Intervals, attributes: ['intervalNum'] }
+            }
           ]
         }).then(data => {
           // res.send(data);
           var intervalObj = {};
           data.forEach(async issue => {
             async function objectBuilder() {
-              // console.log(util.inspect(issue, false, null, true));
+              intTime =
+                issue.IntervalIssue.dataValues.totalActive -
+                issue.IntervalIssue.dataValues.previousTotalActive;
+              intTime = intTime < 0 ? 0 : intTime;
               if (!intervalObj.Plan) {
                 intervalObj[issue.Plan.title] = {
                   columns: [
                     ['Plan', issue.Plan.estimate_time],
-                    ['Time', issue.previousTotalActive],
                     [
-                      'IntervalTime',
-                      issue.totalActive - issue.previousTotalActive
-                    ]
+                      'Time',
+                      issue.IntervalIssue.dataValues.previousTotalActive
+                    ],
+                    ['IntervalTime', intTime]
                   ],
                   groups: [['Time', 'IntervalTime']],
                   issueName: issue.Plan.title,
                   git_id: issue.Plan.git_id,
                   repo_url: issue.Plan.repo_url,
                   repoName: issue.Plan.reponame,
-                  intervalNum: issue.Intervals[0].intervalNum,
-                  number: issue.Plan.number
+                  intervalNum: issue.intervalNum,
+                  number: issue.Plan.number,
+                  bindTo: issue.id
                 };
               }
             }
             await objectBuilder();
           });
           dataArray.push(intervalObj);
-          if (dataArray.length === 3) res.send(dataArray);
+          if (dataArray.length === 3) {
+            res.send(dataArray);
+          }
         });
       }
     }
@@ -133,7 +150,7 @@ app.get('/api/intervalUpdates', (req, res) => {
 
 app.post('/api/vsCodeMicro', (req, res) => {
   let data = req.body.data;
-
+  console.log('TEST');
   var UserIntervalObj = {
     user: data[0].user,
     totalRunning: 0,
@@ -163,7 +180,8 @@ app.post('/api/vsCodeMicro', (req, res) => {
         totalIdle: 0,
         totalWordCount: 0,
         git_id: intervalItem.git_id,
-        user: data[0].user
+        user: data[0].user,
+        date: intervalItem.date
       };
     }
 
@@ -182,6 +200,7 @@ app.post('/api/vsCodeMicro', (req, res) => {
       UserIntervalObj.totalBreakIdle += intervalItem.idleTime;
     }
     UserIntervalObj.totalWordCount += intervalItem.wordCount;
+    UserIntervalObj.date = intervalItem.date;
   });
 
   //First save UserIntervals
@@ -189,13 +208,13 @@ app.post('/api/vsCodeMicro', (req, res) => {
     .then(async UserIntervalData => {
       UserIntervalId = UserIntervalData.dataValues.id;
       for (var intIssue in IntervalIssuesObj) {
-        console.log(intIssue);
-        console.log('INTISSUE');
+        // console.log(intIssue);
+        // console.log('INTISSUE');
         await Plans.findOne({
           where: { git_id: IntervalIssuesObj[intIssue].git_id }
         }).then(async plansData => {
-          console.log(plansData);
-          console.log('PLANS DATA');
+          // console.log(plansData);
+          // console.log('PLANS DATA');
           if (plansData != null) {
             PlansIds[IntervalIssuesObj[intIssue].git_id] = plansData.get('id');
             IntervalIssuesObj[intIssue].PlanId = plansData.get('id');
@@ -276,10 +295,10 @@ app.post('/api/vsCodeMicro', (req, res) => {
 });
 
 app.get('/api/issueAnalysis', (req, res) => {
-  console.log(req.query);
+  // console.log(req.query);
   // let username, git_id, reponame, number, title, body;
   Plans.findOne({
-    where: { git_id: 'MDU6SXNzdWUzNjkzMjE1MDY=' },
+    where: { git_id: 'MDU6SXNzdWUzNjk0MTA5NzE=' },
     attributes: [
       'id',
       'username',
@@ -323,7 +342,8 @@ app.get('/api/issueAnalysis', (req, res) => {
             ['Active'],
             ['Idle'],
             ['WordCount'],
-            ['Plan']
+            ['Plan'],
+            ['totalActive']
           ],
           intervalCounter: 0,
           git_id: git_id,
@@ -335,18 +355,24 @@ app.get('/api/issueAnalysis', (req, res) => {
           startDate: moment(estimate_start_date).format('dddd MMM Do'),
           endDate: moment(estimate_end_date).format('dddd MMM Do')
         };
-
+        let subTotal = 0;
         data.forEach(interval => {
           intervalsObject.intervalCounter++;
+          let activeTotal =
+            interval.dataValues.totalRunning -
+            interval.dataValues.totalRunningIdle;
+          subTotal += activeTotal;
+
           intervalsObject.columns[0].push(
-            moment(interval.dataValues.createdAt).format('dddd MMM Do') +
-              ' Interval ' +
+            moment(interval.dataValues.date).format('ddd M/D') +
+              ' Int- ' +
               intervalsObject.intervalCounter
           );
-          intervalsObject.columns[1].push(interval.dataValues.totalRunning);
+          intervalsObject.columns[1].push(activeTotal);
           intervalsObject.columns[2].push(interval.dataValues.totalRunningIdle);
           intervalsObject.columns[3].push(interval.dataValues.totalWordCount);
           intervalsObject.columns[4].push(estimate_time);
+          intervalsObject.columns[5].push(subTotal);
         });
         res.send(intervalsObject);
       });
@@ -354,13 +380,15 @@ app.get('/api/issueAnalysis', (req, res) => {
   });
 });
 
+app.get('/api/hist', (req, res) => {});
+
 //Interval Updates Detail Component
 app.get('/api/intervalDetails', (req, res) => {
   let { intervalNum, repoUrl, user } = req.query;
-  console.log(intervalNum);
-  console.log(repoUrl);
-  console.log(user);
-  console.log('HEEEEEREEEE');
+  // console.log(intervalNum);
+  // console.log(repoUrl);
+  // console.log(user);
+  // console.log('HEEEEEREEEE');
   Intervals.findAll({
     where: {
       intervalNum: intervalNum,
@@ -385,6 +413,7 @@ app.get('/api/intervalDetails', (req, res) => {
       };
 
     data.forEach(item => {
+      console.log(item.fileName);
       if (!columns[getFileName(item.fileName)]) {
         columns[getFileName(item.fileName)] = {
           'Running(Active)': 0,
@@ -418,8 +447,9 @@ app.get('/api/intervalDetails', (req, res) => {
     ];
 
     for (var file in columns) {
+      console.log(file);
       let tempFile = 0;
-      if (columns[file] != null) {
+      if (columns[file] !== null) {
         if (columns[file]['Running(Active)'] !== undefined) {
           columnData[1].push(columns[file]['Running(Active)']);
         }
@@ -476,7 +506,7 @@ app.get('/api/intervalDetails', (req, res) => {
       feedback: feedback(),
       intervalNum: intervalNum
     };
-    // console.log(interval);
+    console.log(interval);
     res.send(interval);
   });
 });
