@@ -3,6 +3,7 @@ const Sequelize = require('sequelize');
 
 var db;
 if (process.env.NODE_ENV !== 'production') {
+  console.log('TEST');
   db = new Sequelize('analysis', 'root', '', {
     host: 'localhost',
     dialect: 'mysql'
@@ -41,7 +42,8 @@ const UserIntervals = db.define('UserIntervals', {
   totalRunningIdle: Sequelize.INTEGER,
   totalBreak: Sequelize.INTEGER,
   totalBreakIdle: Sequelize.INTEGER,
-  totalWordCount: Sequelize.INTEGER
+  totalWordCount: Sequelize.INTEGER,
+  date: { type: Sequelize.DATE, defaultValue: Sequelize.NOW }
 });
 
 const IntervalIssues = db.define('IntervalIssues', {
@@ -52,7 +54,8 @@ const IntervalIssues = db.define('IntervalIssues', {
   previousTotalIdle: { type: Sequelize.INTEGER, defaultValue: 0 },
   previousTotalWordCount: { type: Sequelize.INTEGER, defaultValue: 0 },
   totalIntervals: { type: Sequelize.INTEGER, defaultValue: 1 },
-  user: Sequelize.STRING
+  user: Sequelize.STRING,
+  date: { type: Sequelize.DATE, defaultValue: Sequelize.NOW }
 });
 
 // plandata table
